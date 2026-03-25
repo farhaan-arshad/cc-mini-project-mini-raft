@@ -1,1 +1,37 @@
 <!-- Main HTML page with canvas element -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini-RAFT Drawing Board</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="toolbar">
+    <span class="logo">🎨 Mini-RAFT Board</span>
+
+    <div class="controls">
+      <label>Color
+        <input type="color" id="colorPicker" value="#000000" />
+      </label>
+
+      <label>Size
+        <input type="range" id="brushSize" min="1" max="20" value="4" />
+      </label>
+
+      <button id="clearBtn">Clear</button>
+    </div>
+
+    <div class="status-bar">
+      <span id="connectionStatus" class="badge disconnected">Disconnected</span>
+      <span id="leaderStatus" class="badge neutral">Leader: Unknown</span>
+    </div>
+  </div>
+
+  <canvas id="drawingCanvas"></canvas>
+
+  <script src="app.js"></script>
+</body>
+</html>
