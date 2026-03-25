@@ -1,1 +1,5 @@
 # Python deps: fastapi, websockets, uvicorn, httpx
+fastapi
+uvicorn[standard]
+websockets
+httpx
