@@ -1,1 +1,74 @@
 # Defines gateway + 3 replicas + shared network
+version: "3.8"
+
+services:
+
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - GATEWAY_PORT=8000
+    networks:
+      - raft-network
+    depends_on:
+      - replica1
+      - replica2
+      - replica3
+    volumes:
+      - ./gateway:/app
+    restart: unless-stopped
+
+  replica1:
+    build: ./replica
+    container_name: replica1
+    ports:
+      - "8001:8001"
+    environment:
+      - REPLICA_ID=replica1
+      - REPLICA_PORT=8001
+      - PEERS=http://replica2:8002,http://replica3:8003
+    command: uvicorn replica:app --host 0.0.0.0 --port 8001 --reload
+    networks:
+      - raft-network
+    volumes:
+      - ./replica:/app
+    restart: unless-stopped
+
+  replica2:
+    build: ./replica
+    container_name: replica2
+    ports:
+      - "8002:8002"
+    environment:
+      - REPLICA_ID=replica2
+      - REPLICA_PORT=8002
+      - PEERS=http://replica1:8001,http://replica3:8003
+    command: uvicorn replica:app --host 0.0.0.0 --port 8002 --reload
+    networks:
+      - raft-network
+    volumes:
+      - ./replica:/app
+    restart: unless-stopped
+
+  replica3:
+    build: ./replica
+    container_name: replica3
+    ports:
+      - "8003:8003"
+    environment:
+      - REPLICA_ID=replica3
+      - REPLICA_PORT=8003
+      - PEERS=http://replica1:8001,http://replica2:8002
+    command: uvicorn replica:app --host 0.0.0.0 --port 8003 --reload
+    networks:
+      - raft-network
+    volumes:
+      - ./replica:/app
+    restart: unless-stopped
+
+networks:
+  raft-network:
+    driver: bridge
+    
