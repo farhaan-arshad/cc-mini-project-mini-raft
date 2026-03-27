@@ -1,36 +1,161 @@
-<!-- Main HTML page with canvas element -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mini-RAFT Drawing Board</title>
+  <title>RAFT Canvas — Distributed Drawing</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <div class="toolbar">
-    <span class="logo">🎨 Mini-RAFT Board</span>
+  <!-- Animated background grid -->
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
 
-    <div class="controls">
-      <label>Color
-        <input type="color" id="colorPicker" value="#000000" />
-      </label>
-
-      <label>Size
-        <input type="range" id="brushSize" min="1" max="20" value="4" />
-      </label>
-
-      <button id="clearBtn">Clear</button>
-    </div>
-
-    <div class="status-bar">
-      <span id="connectionStatus" class="badge disconnected">Disconnected</span>
-      <span id="leaderStatus" class="badge neutral">Leader: Unknown</span>
+  <!-- Splash screen -->
+  <div class="splash" id="splash">
+    <div class="splash-inner">
+      <div class="splash-logo">
+        <span class="splash-dot" id="d1"></span>
+        <span class="splash-dot" id="d2"></span>
+        <span class="splash-dot" id="d3"></span>
+      </div>
+      <h1 class="splash-title">RAFT<span class="accent">Canvas</span></h1>
+      <p class="splash-sub">Distributed · Real-Time · Fault-Tolerant</p>
+      <div class="splash-bar"><div class="splash-fill" id="splashFill"></div></div>
+      <p class="splash-hint" id="splashHint">Electing leader...</p>
     </div>
   </div>
 
-  <canvas id="drawingCanvas"></canvas>
+  <!-- Main App -->
+  <div class="app" id="app">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-mark">RC</div>
+        <div class="logo-text">
+          <span class="logo-name">RAFTCanvas</span>
+          <span class="logo-tag">v1.0 · distributed</span>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="node-cluster">
+          <div class="node-pill" id="node1">
+            <span class="node-dot"></span>
+            <span class="node-label">R1</span>
+          </div>
+          <div class="node-pill" id="node2">
+            <span class="node-dot"></span>
+            <span class="node-label">R2</span>
+          </div>
+          <div class="node-pill" id="node3">
+            <span class="node-dot"></span>
+            <span class="node-label">R3</span>
+          </div>
+          <div class="raft-pulse" id="raftPulse"></div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="status-chip" id="statusChip">
+          <span class="chip-dot"></span>
+          <span class="chip-label" id="chipLabel">Connecting...</span>
+        </div>
+        <div class="leader-chip" id="leaderChip">
+          <span class="chip-icon">⬡</span>
+          <span id="leaderLabel">No Leader</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+
+      <div class="tool-section">
+        <span class="tool-section-label">BRUSH</span>
+        <div class="tool-group">
+          <button class="tool-btn active" id="penTool" title="Pen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+          </button>
+          <button class="tool-btn" id="eraserTool" title="Eraser">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l10-10 7 7-2.5 2.5"/><path d="M6.0001 11L13 18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-divider"></div>
+
+      <div class="tool-section">
+        <span class="tool-section-label">COLOR</span>
+        <div class="color-swatches">
+          <button class="swatch active" style="--c:#f0f0f0" data-color="#f0f0f0"></button>
+          <button class="swatch" style="--c:#ff4d6d" data-color="#ff4d6d"></button>
+          <button class="swatch" style="--c:#4cc9f0" data-color="#4cc9f0"></button>
+          <button class="swatch" style="--c:#f8961e" data-color="#f8961e"></button>
+          <button class="swatch" style="--c:#7bff6a" data-color="#7bff6a"></button>
+          <button class="swatch" style="--c:#c77dff" data-color="#c77dff"></button>
+          <label class="swatch custom-swatch" title="Custom color">
+            <input type="color" id="colorPicker" value="#f0f0f0"/>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </label>
+        </div>
+      </div>
+
+      <div class="tool-divider"></div>
+
+      <div class="tool-section">
+        <span class="tool-section-label">SIZE</span>
+        <div class="size-control">
+          <div class="size-preview" id="sizePreview"></div>
+          <input type="range" id="brushSize" min="1" max="30" value="4" class="size-slider"/>
+          <span class="size-value" id="sizeValue">4px</span>
+        </div>
+      </div>
+
+      <div class="tool-divider"></div>
+
+      <div class="tool-section">
+        <span class="tool-section-label">ACTIONS</span>
+        <div class="tool-group">
+          <button class="tool-btn danger" id="clearBtn" title="Clear canvas">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="stroke-counter">
+          <span class="counter-val" id="strokeCount">0</span>
+          <span class="counter-label">strokes</span>
+        </div>
+        <div class="users-indicator">
+          <span class="users-dot"></span>
+          <span id="userCount">1</span> online
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Canvas area -->
+    <div class="canvas-wrap">
+      <canvas id="drawingCanvas"></canvas>
+
+      <!-- Cursor label -->
+      <div class="cursor-label" id="cursorLabel">
+        <span id="cursorText">You</span>
+      </div>
+
+      <!-- Toast notifications -->
+      <div class="toast-container" id="toastContainer"></div>
+
+      <!-- Corner watermark -->
+      <div class="canvas-watermark">RAFT CANVAS · DISTRIBUTED</div>
+    </div>
+
+  </div>
 
   <script src="app.js"></script>
 </body>
