@@ -67,12 +67,18 @@ function drawStroke(x1, y1, x2, y2, color, width) {
 }
 
 function sendStroke(x1, y1, x2, y2) {
+  // Draw locally immediately for instant feedback (optimistic update)
+  const color = isEraser ? "#0a0c10" : currentColor;
+  const width = isEraser ? currentSize * 3 : currentSize;
+  drawStroke(x1, y1, x2, y2, color, width);
+  
+  // Send to RAFT cluster for consensus
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
   socket.send(JSON.stringify({
     type: "stroke",
     x1, y1, x2, y2,
-    color: isEraser ? "#0a0c10" : currentColor,
-    width: isEraser ? currentSize * 3 : currentSize,
+    color: color,
+    width: width,
   }));
   strokeCount++;
   document.getElementById("strokeCount").textContent = strokeCount;
@@ -264,12 +270,14 @@ async function pollLeader() {
     const res  = await fetch("http://localhost:8000/health");
     const data = await res.json();
     if (data.leader) {
-      const parts = data.leader.split("/");
-      const id    = parts[parts.length - 1].split(":")[0];
-      updateLeader(id);
+      // Gateway now returns replica ID directly (e.g., "replica2")
+      updateLeader(data.leader);
+    } else {
+      updateLeader(null);
     }
   } catch (e) {
     // gateway not reachable
+    console.log("Gateway health check failed:", e);
   }
   setTimeout(pollLeader, 2000);
 }

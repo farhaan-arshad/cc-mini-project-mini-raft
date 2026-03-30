@@ -67,6 +67,18 @@ async def request_vote(req: VoteRequest):
     if already_voted:
         return {"term": state.current_term, "vote_granted": False}
 
+    # RAFT requirement: Only vote for candidates with up-to-date logs
+    my_last_term = log.get_last_log_term()
+    my_last_index = log.get_last_log_index()
+    
+    candidate_is_up_to_date = (
+        req.last_log_term > my_last_term or 
+        (req.last_log_term == my_last_term and req.last_log_index >= my_last_index)
+    )
+    
+    if not candidate_is_up_to_date:
+        return {"term": state.current_term, "vote_granted": False}
+
     state.voted_for = req.candidate_id
     print(f"[{state.replica_id}] Voted for {req.candidate_id} in term {req.term}")
     return {"term": state.current_term, "vote_granted": True}
@@ -81,9 +93,16 @@ async def append_entries(req: AppendEntriesRequest):
     state.reset_to_follower(req.term)
     state.current_leader = req.leader_id
 
-    # Check if log is behind
+    # RAFT requirement: Check both log length AND term at prev_log_index
     if req.prev_log_index >= 0:
         if len(state.log) <= req.prev_log_index:
+            return {
+                "term": state.current_term,
+                "success": False,
+                "log_length": len(state.log)
+            }
+        # Verify the term matches at the previous log index
+        if state.log[req.prev_log_index]["term"] != req.prev_log_term:
             return {
                 "term": state.current_term,
                 "success": False,
@@ -131,6 +150,17 @@ async def client_stroke(req: StrokeRequest):
         return {"success": False, "reason": "not leader", "leader": state.current_leader}
 
     entry = req.dict()
+    log.append(entry, state.current_term)
+    success = await replication.replicate_entry(state, log, entry)
+    return {"success": success}
+
+# --- /client-clear ---
+@router.post("/client-clear")
+async def client_clear():
+    if state.state != NodeState.LEADER:
+        return {"success": False, "reason": "not leader", "leader": state.current_leader}
+
+    entry = {"type": "clear"}
     log.append(entry, state.current_term)
     success = await replication.replicate_entry(state, log, entry)
     return {"success": success}

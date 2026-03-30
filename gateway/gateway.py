@@ -71,22 +71,28 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"[Gateway] Client disconnected. Total: {len(connected_clients)}")
 
 
-# --- Forward Stroke to Leader ---
-async def forward_to_leader(stroke: dict):
+# --- Forward Stroke/Command to Leader ---
+async def forward_to_leader(data: dict):
     global current_leader
     if current_leader is None:
         await find_leader()
         if current_leader is None:
-            print("[Gateway] No leader available, dropping stroke")
+            print("[Gateway] No leader available, dropping message")
             return
     try:
+        # Route based on message type
+        if data.get("type") == "clear":
+            endpoint = "/client-clear"
+        else:
+            endpoint = "/client-stroke"
+        
         async with httpx.AsyncClient(timeout=2.0) as client:
             response = await client.post(
-                f"{current_leader}/client-stroke",
-                json=stroke
+                f"{current_leader}{endpoint}",
+                json=data
             )
             if response.status_code != 200:
-                print(f"[Gateway] Leader rejected stroke: {response.status_code}")
+                print(f"[Gateway] Leader rejected message: {response.status_code}")
     except Exception as e:
         print(f"[Gateway] Leader unreachable: {e}, searching for new leader...")
         current_leader = None
@@ -110,4 +116,20 @@ async def broadcast(stroke: dict):
 # --- Health Check ---
 @app.get("/health")
 async def health():
-    return {"status": "ok", "leader": current_leader, "clients": len(connected_clients)}
+    leader_id = None
+    if current_leader:
+        # Extract replica ID from URL like "http://replica2:8002"
+        try:
+            import re
+            match = re.search(r'replica\d+', current_leader)
+            if match:
+                leader_id = match.group(0)
+        except:
+            pass
+    
+    return {
+        "status": "ok",
+        "leader": leader_id,
+        "leader_url": current_leader,
+        "clients": len(connected_clients)
+    }

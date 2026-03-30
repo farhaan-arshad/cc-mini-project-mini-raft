@@ -20,19 +20,26 @@ async def election_loop(state, log):
 
     while True:
         timeout = random.uniform(ELECTION_TIMEOUT_MIN, ELECTION_TIMEOUT_MAX)
-        await asyncio.sleep(timeout)
-
-        if state.state == NodeState.LEADER:
-            continue
-
-        # Check if we received a heartbeat within the timeout window
-        time_since_heartbeat = time.time() - last_heartbeat_time
-        if time_since_heartbeat < timeout:
-            continue  # heartbeat received, don't start election
-
-        # No heartbeat received — start election
-        print(f"[{state.replica_id}] Election timeout! Starting election...")
-        await start_election(state, log)
+        start_time = time.time()
+        
+        # Poll until timeout or heartbeat received
+        while True:
+            await asyncio.sleep(0.05)  # Check every 50ms
+            
+            if state.state == NodeState.LEADER:
+                break  # Leader doesn't participate in elections
+            
+            elapsed = time.time() - start_time
+            time_since_heartbeat = time.time() - last_heartbeat_time
+            
+            if time_since_heartbeat < timeout:
+                break  # Heartbeat received, reset timer
+            
+            if elapsed >= timeout:
+                # Timeout reached with no heartbeat — start election
+                print(f"[{state.replica_id}] Election timeout! Starting election...")
+                await start_election(state, log)
+                break
 
 async def start_election(state, log):
     state.become_candidate()
