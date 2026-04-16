@@ -68,6 +68,19 @@ services:
       - ./replica:/app
     restart: unless-stopped
 
+  frontend:
+    image: python:3.9-slim
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    command: python -m http.server 3000
+    networks:
+      - raft-network
+    volumes:
+      - ./frontend:/app
+    restart: unless-stopped
+
 networks:
   raft-network:
     driver: bridge
